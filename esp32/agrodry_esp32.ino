@@ -87,6 +87,14 @@ DHT               dht(DHT_PIN, DHT_TYPE);
 unsigned long     lastPublishMs = 0;
 
 // ─────────────────────────────────────────────────────────────
+//  ACTUATOR STATES (Virtual)
+// ─────────────────────────────────────────────────────────────
+bool fanState    = true;
+bool motorState  = true;
+bool systemState = true;   // true = system normal, false = system off
+
+
+// ─────────────────────────────────────────────────────────────
 //  HELPERS
 // ─────────────────────────────────────────────────────────────
 
@@ -106,6 +114,17 @@ String getISO8601() {
   // Format matches JavaScript's Date.toISOString() perfectly
   strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S.000Z", t);
   return String(buf);
+}
+
+// Control virtual fan based on temperature
+void controlFan(float temperature) {
+  if (temperature >= 45.0) {
+    fanState = false;
+  }
+  else if (temperature < 44.0) {
+    fanState = true;
+  }
+  // If we had a physical relay: digitalWrite(FAN_RELAY_PIN, fanState ? RELAY_ON : RELAY_OFF);
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -165,16 +184,32 @@ void publishReading() {
     return;
   }
 
+  // Actuator Logic (Blynk ported)
+  if (moisture < 14) {
+    motorState  = false;
+    fanState    = false;
+    systemState = false;
+    Serial.println("[System] OFF — Moisture below 14%");
+  }
+  else {
+    motorState  = true;
+    systemState = true;
+    controlFan(temperature);
+  }
+
   // Build JSON payload
-  StaticJsonDocument<200> doc;
+  StaticJsonDocument<256> doc; // Increased size to fit new fields
   doc["deviceId"]    = DEVICE_ID;
   doc["temperature"] = serialized(String(temperature, 1));
   doc["humidity"]    = serialized(String(humidity, 1));
   doc["moisture"]    = moisture;
+  doc["fanState"]    = fanState;     // true/false
+  doc["motorState"]  = motorState;   // true/false
+  doc["systemState"] = systemState;  // true/false
   doc["status"]      = "online";
   doc["createdAt"]   = getISO8601();
 
-  char payload[200];
+  char payload[256];
   serializeJson(doc, payload);
 
   // Publish
@@ -189,8 +224,8 @@ void publishReading() {
   }
 
   Serial.println("[Payload] " + String(payload));
-  Serial.printf("[Sensor]  Temp=%.1f°C  Hum=%.1f%%  Moisture=%d%%\n",
-                temperature, humidity, moisture);
+  Serial.printf("[Sensor]  Temp=%.1f°C  Hum=%.1f%%  Moisture=%d%% | Fan:%d Motor:%d Sys:%d\n",
+                temperature, humidity, moisture, fanState, motorState, systemState);
 }
 
 // ─────────────────────────────────────────────────────────────

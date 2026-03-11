@@ -30,7 +30,19 @@ const sensorReadingSchema = new mongoose.Schema(
     // Soil moisture (0–100 typical range)
     moisture: {
       type: Number,
-      required: [true, "moisture is required"],
+      required: true,
+    },
+    fanState: {
+      type: Boolean,
+      default: null,
+    },
+    motorState: {
+      type: Boolean,
+      default: null,
+    },
+    systemState: {
+      type: Boolean,
+      default: null,
     },
 
     // "online" | "offline" | "warning"

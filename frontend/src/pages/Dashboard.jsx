@@ -47,6 +47,21 @@ const IconPower = (
     <line x1="12" y1="2" x2="12" y2="12"/>
   </svg>
 );
+const IconFan = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+    <path d="M12 12c-3-3-5-3-7-1s-1 5 1 7c2.5 2.5 6 1 6-4z"/>
+    <path d="M12 12c3-3 5-3 7-1s1 5-1 7c-2.5 2.5-6 1-6-4z"/>
+    <path d="M12 12c-3 3-5 3-7 1s-1-5 1-7c2.5-2.5 6-1 6 4z"/>
+    <path d="M12 12c3 3 5 3 7 1s1-5-1-7c-2.5-2.5-6-1-6 4z"/>
+  </svg>
+);
+const IconMotor = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+    <circle cx="12" cy="12" r="8"/>
+    <circle cx="12" cy="12" r="3"/>
+    <path d="M12 4v3M12 17v3M4 12h3M17 12h3"/>
+  </svg>
+);
 const IconHistory = (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
     <circle cx="12" cy="12" r="10"/>
@@ -167,6 +182,9 @@ const Dashboard = () => {
   const temp          = latest?.temperature;
   const humidity      = latest?.humidity;
   const moisture      = latest?.moisture;
+  const fanOn         = latest?.fanState === true;
+  const motorOn       = latest?.motorState === true;
+  const systemOn      = online && latest?.systemState !== false; // defaults to true unless explicitly false
   const phase         = getDryingPhase(moisture, temp, online);
   const moistureProg  = getMoistureProgress(moisture);
 
@@ -245,12 +263,30 @@ const Dashboard = () => {
               </span>
             </div>
             <div className="device-banner__stat">
-              <span className="device-banner__stat-label">Device Power</span>
-              <span className={`device-banner__pill ${online ? "pill--green" : "pill--gray"}`}>
+              <span className="device-banner__stat-label">System Power</span>
+              <span className={`device-banner__pill ${systemOn ? "pill--green" : "pill--gray"}`}>
                 <span className="device-banner__power-icon">{IconPower}</span>
-                {online ? "ON" : "OFF"}
+                {systemOn ? "ON" : "OFF"}
               </span>
             </div>
+            {online && latest?.fanState !== undefined && (
+              <>
+                <div className="device-banner__stat">
+                  <span className="device-banner__stat-label">Heater Fan</span>
+                  <span className={`device-banner__pill ${fanOn ? "pill--red" : "pill--gray"}`}>
+                    <span className="device-banner__power-icon" style={{ animation: fanOn ? 'spin 2s linear infinite' : 'none' }}>{IconFan}</span>
+                    {fanOn ? "ON" : "STDBY"}
+                  </span>
+                </div>
+                <div className="device-banner__stat">
+                  <span className="device-banner__stat-label">Tumbler Motor</span>
+                  <span className={`device-banner__pill ${motorOn ? "pill--green" : "pill--gray"}`}>
+                    <span className="device-banner__power-icon" style={{ animation: motorOn ? 'spin 4s linear infinite' : 'none' }}>{IconMotor}</span>
+                    {motorOn ? "SPINNING" : "STOPPED"}
+                  </span>
+                </div>
+              </>
+            )}
             <div className="device-banner__stat">
               <span className="device-banner__stat-label">Drying Status</span>
               <span className={`device-banner__pill ${online ? "pill--green" : "pill--gray"}`}>

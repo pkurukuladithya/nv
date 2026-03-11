@@ -339,13 +339,35 @@ class SimulatorApp(tk.Tk):
 
     # ── payload builder ──
     def _build_payload(self):
+        temp = round(self.temp_var.get(), 1)
+        hum = round(self.hum_var.get(), 1)
+        moist = round(self.moist_var.get(), 0)
+        
+        # Virtual Actuator Logic
+        fan_state = True
+        motor_state = True
+        system_state = True
+        
+        if temp >= 45.0:
+            fan_state = False
+        elif temp < 44.0:
+            fan_state = True
+            
+        if moist < 14:
+            motor_state = False
+            fan_state = False
+            system_state = False
+
         return {
             "deviceId":    self.device_id_var.get().strip() or "esp32_01",
-            "temperature": round(self.temp_var.get(), 1),
-            "humidity":    round(self.hum_var.get(), 1),
-            "moisture":    round(self.moist_var.get(), 0),
+            "temperature": temp,
+            "humidity":    hum,
+            "moisture":    moist,
+            "fanState":    fan_state,
+            "motorState":  motor_state,
+            "systemState": system_state,
             "status":      "online",
-            "createdAt":   datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "createdAt":   datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z"),
         }
 
     def _update_payload_preview(self):
