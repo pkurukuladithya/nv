@@ -12,9 +12,13 @@ const {
   getSensorById,
   createSensor,
   deleteSensor,
+  streamSensors,
 } = require("../controllers/sensorController");
 
 // IMPORTANT: specific paths must come before parameterised paths.
+
+// GET /api/sensors/stream                   → Server-Sent Events for real-time updates
+router.get("/stream", streamSensors);
 
 // GET /api/sensors                          → all readings (optional ?deviceId=)
 router.get("/", getAllSensors);

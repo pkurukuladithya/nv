@@ -8,6 +8,8 @@ const mqtt = require("mqtt");
 const getMqttOptions = require("../config/mqtt");
 const SensorReading = require("../models/sensorReadingModel");
 
+const { broadcastNewReading } = require("../controllers/sensorController");
+
 // Topic pattern: devices/+/readings
 // The + is a single-level wildcard that matches any deviceId
 const SUBSCRIBE_TOPIC = process.env.MQTT_TOPIC_PATTERN || "devices/+/readings";
@@ -114,6 +116,10 @@ const startMqttSubscriber = () => {
         `✅ MQTT: Saved reading — Device: ${reading.deviceId} | ` +
         `Temp: ${reading.temperature}°C | Hum: ${reading.humidity}% | Moisture: ${reading.moisture}%`
       );
+      
+      // SSE: Broadcast to all connected dashboard clients
+      broadcastNewReading(reading);
+
     } catch (dbErr) {
       console.error("❌ MQTT: Failed to save reading to MongoDB:", dbErr.message);
     }

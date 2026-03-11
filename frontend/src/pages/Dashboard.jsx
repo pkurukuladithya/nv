@@ -95,9 +95,7 @@ const Dashboard = () => {
   const [loading, setLoading]         = useState(true);
   const [error, setError]             = useState(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
-  const [countdown, setCountdown]     = useState(POLL_INTERVAL);
-  const pollTimer  = useRef(null);
-  const countTimer = useRef(null);
+  const sseRef = useRef(null);
 
   const fetchData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -116,18 +114,51 @@ const Dashboard = () => {
     }
   }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
-
   useEffect(() => {
-    clearInterval(pollTimer.current);
-    clearInterval(countTimer.current);
-    if (!autoRefresh) { setCountdown(POLL_INTERVAL); return; }
-    setCountdown(POLL_INTERVAL);
-    countTimer.current = setInterval(
-      () => setCountdown((c) => (c <= 1 ? POLL_INTERVAL : c - 1)), 1000
-    );
-    pollTimer.current = setInterval(() => fetchData(true), POLL_INTERVAL * 1000);
-    return () => { clearInterval(pollTimer.current); clearInterval(countTimer.current); };
+    // 1. Always fetch initial data on mount
+    fetchData();
+
+    // 2. Setup real-time SSE connection if autoRefresh is ON
+    if (!autoRefresh) {
+      if (sseRef.current) {
+        sseRef.current.close();
+        sseRef.current = null;
+      }
+      return;
+    }
+
+    const sse = new EventSource(`${import.meta.env.VITE_API_BASE_URL}/api/sensors/stream`);
+    sseRef.current = sse;
+
+    sse.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.connected) return; // Ignore initial connection ack
+
+        // Real-time update!
+        setLatest(data);
+        setSensors((prev) => {
+          // Add new reading to top, keep max 200
+          const updated = [data, ...prev];
+          if (updated.length > 200) updated.pop();
+          return updated;
+        });
+      } catch (err) {
+        console.error("SSE parse error", err);
+      }
+    };
+
+    sse.onerror = () => {
+      // Browser automatically tries to reconnect SSE on error
+      console.warn("Real-time connection dropped. Trying to reconnect...");
+    };
+
+    return () => {
+      if (sseRef.current) {
+        sseRef.current.close();
+        sseRef.current = null;
+      }
+    };
   }, [autoRefresh, fetchData]);
 
   // Derived state
@@ -171,7 +202,7 @@ const Dashboard = () => {
         <div>
           <h1 className="dashboard-title">Paddy Drying Monitor</h1>
           <p className="dashboard-subtitle">
-            Live sensor readings · 4-second auto refresh · HiveMQ Cloud MQTT
+            Instant real-time updates · SSE Streaming · HiveMQ Cloud MQTT
           </p>
         </div>
         <div className="header-actions">
@@ -184,7 +215,7 @@ const Dashboard = () => {
                 onChange={(e) => setAutoRefresh(e.target.checked)}
                 style={{ marginRight: "0.35rem", accentColor: "#16a34a" }}
               />
-              {autoRefresh ? `Auto · ${countdown}s` : "Auto Off"}
+              {autoRefresh ? "Real-time Live" : "Live Updates Off"}
             </label>
           </div>
           <button className="btn btn-secondary" onClick={() => fetchData(false)} disabled={loading}>

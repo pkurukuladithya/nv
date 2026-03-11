@@ -5,6 +5,50 @@
 
 const SensorReading = require("../models/sensorReadingModel");
 
+// Store connected SSE clients
+let sseClients = [];
+
+// -------------------------------------------------------
+// Server-Sent Events (SSE) Broadcaster
+// Call this from mqttSubscriber when a new reading arrives
+// -------------------------------------------------------
+const broadcastNewReading = (reading) => {
+  // Send to all connected clients
+  sseClients.forEach((client) => {
+    try {
+      client.res.write(`data: ${JSON.stringify(reading)}\n\n`);
+    } catch (e) {
+      console.error("SSE broadcast error:", e);
+    }
+  });
+};
+
+// -------------------------------------------------------
+// GET /api/sensors/stream
+// SSE endpoint for real-time updates
+// -------------------------------------------------------
+const streamSensors = (req, res) => {
+  // SSE Headers
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders(); // flush the headers to establish connection
+
+  // Send an initial connected message
+  res.write(`data: {"connected": true}\n\n`);
+
+  // Add this client to the pool
+  const clientId = Date.now();
+  const newClient = { id: clientId, res };
+  sseClients.push(newClient);
+
+  // Remove client when connection closes
+  req.on("close", () => {
+    sseClients = sseClients.filter((c) => c.id !== clientId);
+  });
+};
+
+
 // -------------------------------------------------------
 // GET /api/sensors
 // Returns all sensor readings, newest first.
@@ -165,4 +209,6 @@ module.exports = {
   getSensorById,
   createSensor,
   deleteSensor,
+  streamSensors,
+  broadcastNewReading,
 };
