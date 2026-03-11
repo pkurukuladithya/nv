@@ -435,6 +435,12 @@ class SimulatorApp(tk.Tk):
         self.mqtt_client.on_publish    = self._on_publish
 
         try:
+            # Auto-enable TLS for port 8883 / 8884 (required by HiveMQ Cloud and most secure brokers)
+            if port in (8883, 8884):
+                import ssl
+                self.mqtt_client.tls_set(tls_version=ssl.PROTOCOL_TLS_CLIENT)
+                self._log("🔒 TLS enabled (port 8883/8884 detected)", "info")
+
             self.mqtt_client.connect_async(broker, port, keepalive=60)
             self.mqtt_client.loop_start()
         except Exception as exc:
