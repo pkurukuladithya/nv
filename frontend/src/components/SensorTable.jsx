@@ -1,31 +1,21 @@
-// SensorTable.jsx - Displays all sensor readings in a table
-// Shows deviceId, analog, digital, status, timestamp, and delete action
+// SensorTable.jsx - Displays sensor readings history in a table
+// Updated for new fields: temperature, humidity, moisture
 
 import { deleteSensor } from "../api/sensorApi";
+import DeviceStatusBadge from "./DeviceStatusBadge";
 
 const SensorTable = ({ sensors, onDelete }) => {
-  // Format ISO date to a readable string
   const formatDate = (isoString) => {
+    if (!isoString) return "—";
     const date = new Date(isoString);
     return date.toLocaleString();
-  };
-
-  // Returns a CSS class based on the status string
-  const getStatusClass = (status) => {
-    const map = {
-      online: "badge badge--online",
-      offline: "badge badge--offline",
-      warning: "badge badge--warning",
-      error: "badge badge--error",
-    };
-    return map[status?.toLowerCase()] || "badge badge--default";
   };
 
   const handleDelete = async (id) => {
     if (!window.confirm("Delete this sensor reading?")) return;
     try {
       await deleteSensor(id);
-      if (onDelete) onDelete(); // Refresh list in parent
+      if (onDelete) onDelete();
     } catch (err) {
       alert("Failed to delete. Please try again.");
       console.error("Delete error:", err);
@@ -40,7 +30,7 @@ const SensorTable = ({ sensors, onDelete }) => {
             <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
           </svg>
         </div>
-        <h2 className="table-card__title">All Sensor Readings</h2>
+        <h2 className="table-card__title">Sensor History</h2>
         <span className="table-card__count">{sensors.length} records</span>
       </div>
 
@@ -49,9 +39,11 @@ const SensorTable = ({ sensors, onDelete }) => {
           <thead>
             <tr>
               <th>Device ID</th>
-              <th>Analog</th>
-              <th>Digital</th>
+              <th>Temp (°C)</th>
+              <th>Humidity (%)</th>
+              <th>Moisture (%)</th>
               <th>Status</th>
+              <th>Source</th>
               <th>Timestamp</th>
               <th>Action</th>
             </tr>
@@ -62,11 +54,15 @@ const SensorTable = ({ sensors, onDelete }) => {
                 <td>
                   <span className="device-id">{sensor.deviceId}</span>
                 </td>
-                <td className="numeric">{sensor.analogSensor}</td>
-                <td className="numeric">{sensor.digitalSensor}</td>
+                <td className="numeric">{sensor.temperature ?? "—"}</td>
+                <td className="numeric">{sensor.humidity ?? "—"}</td>
+                <td className="numeric">{sensor.moisture ?? "—"}</td>
                 <td>
-                  <span className={getStatusClass(sensor.status)}>
-                    {sensor.status || "unknown"}
+                  <DeviceStatusBadge status={sensor.status} />
+                </td>
+                <td>
+                  <span className="source-tag source-tag--{sensor.source || 'mqtt'}">
+                    {sensor.source || "mqtt"}
                   </span>
                 </td>
                 <td className="timestamp">{formatDate(sensor.createdAt)}</td>

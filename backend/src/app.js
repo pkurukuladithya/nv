@@ -1,16 +1,14 @@
 // =============================================
 // app.js - Express Application Configuration
 // =============================================
-// This file sets up the Express app with middleware and routes.
-// It is kept separate from server.js so it can be tested independently.
 
 const express = require("express");
 const cors = require("cors");
 
-// Load environment variables from .env file
 require("dotenv").config();
 
 const sensorRoutes = require("./routes/sensorRoutes");
+const deviceRoutes = require("./routes/deviceRoutes");
 
 const app = express();
 
@@ -18,8 +16,6 @@ const app = express();
 // MIDDLEWARE
 // -------------------------------------------------------
 
-// CORS - allow requests from the frontend origin
-// In production, CORS_ORIGIN should be set to your Vercel frontend URL
 const corsOptions = {
   origin: process.env.CORS_ORIGIN || "http://localhost:5173",
   methods: ["GET", "POST", "DELETE", "PUT", "PATCH"],
@@ -27,14 +23,13 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 
-// Parse incoming JSON request bodies
 app.use(express.json());
 
 // -------------------------------------------------------
 // ROUTES
 // -------------------------------------------------------
 
-// Health check endpoint - useful to verify the server is running
+// Health check
 app.get("/api/health", (req, res) => {
   res.status(200).json({
     success: true,
@@ -43,11 +38,14 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-// Mount sensor routes at /api/sensors
+// Sensor readings (CRUD + per-device filter)
 app.use("/api/sensors", sensorRoutes);
 
+// Device status board
+app.use("/api/devices", deviceRoutes);
+
 // -------------------------------------------------------
-// 404 HANDLER - catches any undefined routes
+// 404 HANDLER
 // -------------------------------------------------------
 app.use((req, res) => {
   res.status(404).json({ success: false, message: `Route ${req.originalUrl} not found` });

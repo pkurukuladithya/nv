@@ -634,3 +634,320 @@ body {
 @media (max-width: 400px) {
   .cards-grid { grid-template-columns: 1fr; }
 }
+
+/* =============================================
+   RED SENSOR CARD (temperature)
+   ============================================= */
+:root {
+  --red-glow-card: rgba(239, 68, 68, 0.15);
+}
+.sensor-card--red .sensor-card__icon { background: var(--red-glow-card); color: var(--red); }
+
+/* =============================================
+   SENSOR CARD SUBLABEL
+   ============================================= */
+.sensor-card__sublabel {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-top: 0.2rem;
+  text-transform: capitalize;
+}
+
+/* =============================================
+   LATEST META ROW (device id + badge + time)
+   ============================================= */
+.latest-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.timestamp-label {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-left: auto;
+}
+
+/* =============================================
+   HEADER ACTIONS (filter + refresh)
+   ============================================= */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.device-filter {
+  width: auto;
+  padding: 0.5rem 0.875rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+/* =============================================
+   DEVICE STATUS BOARD
+   ============================================= */
+.device-status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1rem;
+}
+
+.device-status-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+
+.device-status-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.device-status-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.device-status-card__readings {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.mini-reading {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  flex: 1;
+  min-width: 60px;
+}
+
+.mini-reading__label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.mini-reading__value {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.device-status-card__seen {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border-color);
+  padding-top: 0.6rem;
+  margin-top: 0.1rem;
+}
+
+/* =============================================
+   SOURCE TAG (mqtt / http)
+   ============================================= */
+.source-tag {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.15rem 0.45rem;
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  border: 1px solid var(--border-color);
+}
+
+/* =============================================
+   LIVE AUTO-REFRESH INDICATOR
+   ============================================= */
+.live-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  padding: 0.3rem 0.85rem;
+}
+
+.live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.live-dot--active {
+  background: var(--green);
+  animation: pulse 2s infinite;
+}
+
+.live-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+}
+
+/* =============================================
+   DEVICE STATUS BANNER (single-device)
+   ============================================= */
+.device-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  padding: 1.25rem 1.5rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.device-banner--online {
+  background: linear-gradient(135deg, rgba(34,197,94,0.06) 0%, var(--bg-surface) 60%);
+  border-color: rgba(34,197,94,0.35);
+  box-shadow: 0 0 0 1px rgba(34,197,94,0.08), var(--shadow-sm);
+}
+
+.device-banner--offline {
+  background: linear-gradient(135deg, rgba(239,68,68,0.05) 0%, var(--bg-surface) 60%);
+  border-color: rgba(239,68,68,0.25);
+}
+
+.device-banner__left {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+}
+
+.device-banner__icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.device-banner--online  .device-banner__icon { background: rgba(34,197,94,0.15); color: var(--green); }
+.device-banner--offline .device-banner__icon { background: rgba(239,68,68,0.12); color: var(--red); }
+
+.device-banner__small {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+  margin-bottom: 0.15rem;
+}
+
+.device-banner__id {
+  font-family: 'Courier New', monospace;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.device-banner__center {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.device-banner__stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.device-banner__stat-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+}
+
+.device-banner__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.28rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.73rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.pill--green {
+  background: rgba(34,197,94,0.15);
+  color: var(--green);
+  border: 1px solid rgba(34,197,94,0.35);
+}
+
+.pill--red {
+  background: rgba(239,68,68,0.12);
+  color: var(--red);
+  border: 1px solid rgba(239,68,68,0.3);
+}
+
+.pill--gray {
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  border: 1px solid var(--border-color);
+}
+
+.pill-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+.pill-dot--blink {
+  animation: pulse 2s infinite;
+}
+
+.device-banner__power-icon {
+  display: flex;
+  align-items: center;
+}
+
+.device-banner__right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.15rem;
+}
+
+.device-banner__time {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 640px) {
+  .device-banner { flex-direction: column; align-items: flex-start; }
+  .device-banner__right { align-items: flex-start; }
+}
+

@@ -1,8 +1,6 @@
 // =============================================
-// sensorRoutes.js - Express Router
+// sensorRoutes.js - Sensor API Routes
 // =============================================
-// Routes map HTTP methods + URL paths to controller functions.
-// This keeps routing logic separate from business logic.
 
 const express = require("express");
 const router = express.Router();
@@ -10,27 +8,30 @@ const router = express.Router();
 const {
   getAllSensors,
   getLatestSensor,
+  getSensorsByDevice,
   getSensorById,
   createSensor,
   deleteSensor,
 } = require("../controllers/sensorController");
 
-// IMPORTANT: /latest must be defined BEFORE /:id
-// Otherwise Express will treat "latest" as an :id parameter
+// IMPORTANT: specific paths must come before parameterised paths.
 
-// GET /api/sensors         → fetch all readings
+// GET /api/sensors                          → all readings (optional ?deviceId=)
 router.get("/", getAllSensors);
 
-// GET /api/sensors/latest  → fetch the most recent reading
+// GET /api/sensors/latest                   → most recent reading (optional ?deviceId=)
 router.get("/latest", getLatestSensor);
 
-// GET /api/sensors/:id     → fetch one reading by ID
+// GET /api/sensors/device/:deviceId         → all readings for one device
+router.get("/device/:deviceId", getSensorsByDevice);
+
+// GET /api/sensors/:id                      → one reading by MongoDB _id
 router.get("/:id", getSensorById);
 
-// POST /api/sensors        → create a new reading
+// POST /api/sensors                         → create via HTTP (testing/manual)
 router.post("/", createSensor);
 
-// DELETE /api/sensors/:id  → delete one reading by ID
+// DELETE /api/sensors/:id                   → delete one reading
 router.delete("/:id", deleteSensor);
 
 module.exports = router;

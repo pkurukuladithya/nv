@@ -1,19 +1,25 @@
 // =============================================
 // sensorController.js - Request Handlers
 // =============================================
-// Controllers contain the logic for each API endpoint.
-// They receive (req, res) from Express routes and send back JSON responses.
+// Updated for the new sensor fields: temperature, humidity, moisture.
 
 const SensorReading = require("../models/sensorReadingModel");
 
 // -------------------------------------------------------
 // GET /api/sensors
-// Returns all sensor readings, newest first
+// Returns all sensor readings, newest first.
+// Optional query param: ?deviceId=esp32_01 to filter by device.
 // -------------------------------------------------------
 const getAllSensors = async (req, res) => {
   try {
-    // Find all documents, sorted by createdAt descending (-1 = newest first)
-    const readings = await SensorReading.find().sort({ createdAt: -1 });
+    const filter = {};
+    if (req.query.deviceId) {
+      filter.deviceId = req.query.deviceId;
+    }
+
+    const readings = await SensorReading.find(filter)
+      .sort({ createdAt: -1 })
+      .limit(200); // cap at 200 records to keep responses fast
 
     res.status(200).json({
       success: true,
@@ -28,12 +34,17 @@ const getAllSensors = async (req, res) => {
 
 // -------------------------------------------------------
 // GET /api/sensors/latest
-// Returns the single most recent sensor reading
+// Returns the single most recent sensor reading.
+// Optional: ?deviceId=esp32_01
 // -------------------------------------------------------
 const getLatestSensor = async (req, res) => {
   try {
-    // findOne with sort gives us just the most recent document
-    const reading = await SensorReading.findOne().sort({ createdAt: -1 });
+    const filter = {};
+    if (req.query.deviceId) {
+      filter.deviceId = req.query.deviceId;
+    }
+
+    const reading = await SensorReading.findOne(filter).sort({ createdAt: -1 });
 
     if (!reading) {
       return res.status(404).json({ success: false, message: "No sensor readings found" });
@@ -47,8 +58,29 @@ const getLatestSensor = async (req, res) => {
 };
 
 // -------------------------------------------------------
+// GET /api/sensors/device/:deviceId
+// Returns all readings for a specific device.
+// -------------------------------------------------------
+const getSensorsByDevice = async (req, res) => {
+  try {
+    const readings = await SensorReading.find({ deviceId: req.params.deviceId })
+      .sort({ createdAt: -1 })
+      .limit(100);
+
+    res.status(200).json({
+      success: true,
+      count: readings.length,
+      data: readings,
+    });
+  } catch (error) {
+    console.error("Error fetching sensors by device:", error.message);
+    res.status(500).json({ success: false, message: "Server error while fetching device sensors" });
+  }
+};
+
+// -------------------------------------------------------
 // GET /api/sensors/:id
-// Returns a single reading by its MongoDB _id
+// Returns a single reading by its MongoDB _id.
 // -------------------------------------------------------
 const getSensorById = async (req, res) => {
   try {
@@ -61,7 +93,6 @@ const getSensorById = async (req, res) => {
     res.status(200).json({ success: true, data: reading });
   } catch (error) {
     console.error("Error fetching sensor by ID:", error.message);
-    // Handle invalid MongoDB ObjectId format
     if (error.name === "CastError") {
       return res.status(400).json({ success: false, message: "Invalid sensor ID format" });
     }
@@ -71,33 +102,32 @@ const getSensorById = async (req, res) => {
 
 // -------------------------------------------------------
 // POST /api/sensors
-// Creates a new sensor reading
-// Body: { deviceId, analogSensor, digitalSensor, status }
+// Creates a new sensor reading via HTTP (manual/test).
+// Body: { deviceId, temperature, humidity, moisture, status }
 // -------------------------------------------------------
 const createSensor = async (req, res) => {
   try {
-    const { deviceId, analogSensor, digitalSensor, status } = req.body;
+    const { deviceId, temperature, humidity, moisture, status } = req.body;
 
-    // Basic validation - ensure required fields are present
-    if (deviceId === undefined || analogSensor === undefined || digitalSensor === undefined) {
+    if (deviceId === undefined || temperature === undefined || humidity === undefined || moisture === undefined) {
       return res.status(400).json({
         success: false,
-        message: "Missing required fields: deviceId, analogSensor, digitalSensor",
+        message: "Missing required fields: deviceId, temperature, humidity, moisture",
       });
     }
 
-    // Create and save the new document
     const newReading = await SensorReading.create({
       deviceId,
-      analogSensor,
-      digitalSensor,
-      status,
+      temperature,
+      humidity,
+      moisture,
+      status: status || "online",
+      source: "http",
     });
 
     res.status(201).json({ success: true, data: newReading });
   } catch (error) {
     console.error("Error creating sensor reading:", error.message);
-    // Mongoose validation error
     if (error.name === "ValidationError") {
       const messages = Object.values(error.errors).map((e) => e.message);
       return res.status(400).json({ success: false, message: messages.join(", ") });
@@ -108,7 +138,7 @@ const createSensor = async (req, res) => {
 
 // -------------------------------------------------------
 // DELETE /api/sensors/:id
-// Deletes a single reading by its MongoDB _id
+// Deletes a single reading by its MongoDB _id.
 // -------------------------------------------------------
 const deleteSensor = async (req, res) => {
   try {
@@ -128,10 +158,10 @@ const deleteSensor = async (req, res) => {
   }
 };
 
-// Export all controller functions so routes can use them
 module.exports = {
   getAllSensors,
   getLatestSensor,
+  getSensorsByDevice,
   getSensorById,
   createSensor,
   deleteSensor,

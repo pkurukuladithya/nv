@@ -9,7 +9,8 @@ const EmptyState = () => {
       </div>
       <h3 className="empty-title">No Sensor Data Yet</h3>
       <p className="empty-description">
-        Use the form above to add your first sensor reading, or connect your ESP32 device later.
+        Start the Python simulator, connect to MQTT, turn the device ON,
+        then click <strong>Publish Once</strong>. Readings will appear here automatically.
       </p>
     </div>
   );

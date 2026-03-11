@@ -1,7 +1,7 @@
 // SensorCard.jsx - Displays a single highlighted metric card
 // Used to show the latest sensor reading values prominently
 
-const SensorCard = ({ title, value, unit = "", icon, color = "blue" }) => {
+const SensorCard = ({ title, value, unit = "", icon, color = "blue", sublabel = null }) => {
   return (
     <div className={`sensor-card sensor-card--${color}`}>
       <div className="sensor-card__icon">{icon}</div>
@@ -11,6 +11,7 @@ const SensorCard = ({ title, value, unit = "", icon, color = "blue" }) => {
           {value !== undefined && value !== null ? value : "—"}
           {unit && <span className="sensor-card__unit"> {unit}</span>}
         </p>
+        {sublabel && <p className="sensor-card__sublabel">{sublabel}</p>}
       </div>
     </div>
   );

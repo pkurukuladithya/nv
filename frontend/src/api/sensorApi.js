@@ -2,12 +2,9 @@
 // sensorApi.js - Axios API Functions
 // =============================================
 // All API calls to the backend are centralized here.
-// The base URL comes from the .env file (VITE_API_BASE_URL).
 
 import axios from "axios";
 
-// Create an Axios instance with the base URL from environment variables
-// Vite exposes .env variables with the VITE_ prefix
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api",
   headers: {
@@ -16,19 +13,29 @@ const api = axios.create({
 });
 
 // Fetch all sensor readings (newest first)
-export const getAllSensors = async () => {
-  const response = await api.get("/sensors");
+// Optional: pass deviceId string to filter by device
+export const getAllSensors = async (deviceId = null) => {
+  const params = deviceId ? { deviceId } : {};
+  const response = await api.get("/sensors", { params });
   return response.data;
 };
 
 // Fetch only the latest sensor reading
-export const getLatestSensor = async () => {
-  const response = await api.get("/sensors/latest");
+// Optional: pass deviceId to get latest for that device
+export const getLatestSensor = async (deviceId = null) => {
+  const params = deviceId ? { deviceId } : {};
+  const response = await api.get("/sensors/latest", { params });
   return response.data;
 };
 
-// Create a new sensor reading
-// data: { deviceId, analogSensor, digitalSensor, status }
+// Fetch all readings for a specific device
+export const getSensorsByDevice = async (deviceId) => {
+  const response = await api.get(`/sensors/device/${deviceId}`);
+  return response.data;
+};
+
+// Create a new sensor reading via HTTP
+// data: { deviceId, temperature, humidity, moisture, status }
 export const createSensor = async (data) => {
   const response = await api.post("/sensors", data);
   return response.data;
@@ -37,6 +44,12 @@ export const createSensor = async (data) => {
 // Delete a sensor reading by its id
 export const deleteSensor = async (id) => {
   const response = await api.delete(`/sensors/${id}`);
+  return response.data;
+};
+
+// Get the latest known reading per device (device status board)
+export const getDeviceStatus = async () => {
+  const response = await api.get("/devices/status");
   return response.data;
 };
 

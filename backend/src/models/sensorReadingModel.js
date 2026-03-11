@@ -1,48 +1,64 @@
 // =============================================
 // sensorReadingModel.js - Mongoose Schema/Model
 // =============================================
-// This defines the shape (schema) of sensor data stored in MongoDB.
-// Mongoose will automatically create a "sensorreadings" collection.
+// Updated to match the ESP32 / simulator MQTT payload:
+// { deviceId, temperature, humidity, moisture, status, createdAt }
 
 const mongoose = require("mongoose");
 
-// Define the schema - this is like a blueprint for each sensor record
 const sensorReadingSchema = new mongoose.Schema(
   {
-    // deviceId: identifies which device sent the data (e.g., "ESP32_01")
+    // Identifies the device (e.g., "esp32_01")
     deviceId: {
       type: String,
       required: [true, "deviceId is required"],
-      trim: true, // removes leading/trailing whitespace
+      trim: true,
     },
 
-    // analogSensor: raw analog reading (e.g., 0-4095 for ESP32 12-bit ADC)
-    analogSensor: {
+    // DHT22 temperature in Celsius
+    temperature: {
       type: Number,
-      required: [true, "analogSensor value is required"],
+      required: [true, "temperature is required"],
     },
 
-    // digitalSensor: 0 or 1 (or true/false) for digital pins
-    digitalSensor: {
-      type: Number, // stored as number (0 or 1) for simplicity
-      required: [true, "digitalSensor value is required"],
+    // DHT22 humidity in percent
+    humidity: {
+      type: Number,
+      required: [true, "humidity is required"],
     },
 
-    // status: optional text like "online", "offline", "warning"
+    // Soil moisture (0–100 typical range)
+    moisture: {
+      type: Number,
+      required: [true, "moisture is required"],
+    },
+
+    // "online" | "offline" | "warning"
     status: {
       type: String,
       default: "online",
       trim: true,
     },
+
+    // Optional: when this record was actually received by the backend
+    receivedAt: {
+      type: Date,
+      default: Date.now,
+    },
+
+    // Source tag: "mqtt" or "http"
+    source: {
+      type: String,
+      default: "mqtt",
+    },
   },
   {
-    // timestamps: true automatically adds createdAt and updatedAt fields
+    // Adds createdAt and updatedAt automatically.
+    // createdAt will be overridden from the payload when provided.
     timestamps: true,
   }
 );
 
-// Create the model from the schema
-// 'SensorReading' is the model name; Mongoose will use 'sensorreadings' as the collection name
 const SensorReading = mongoose.model("SensorReading", sensorReadingSchema);
 
 module.exports = SensorReading;
