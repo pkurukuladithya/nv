@@ -24,6 +24,19 @@ const broadcastNewReading = (reading) => {
 };
 
 // -------------------------------------------------------
+// Keep-alive Heartbeat (Prevents Render/Nginx timeout)
+// -------------------------------------------------------
+setInterval(() => {
+  sseClients.forEach((client) => {
+    try {
+      client.res.write(":\\n\\n"); // Send SSE comment
+    } catch (e) {
+      // Ignore
+    }
+  });
+}, 30000);
+
+// -------------------------------------------------------
 // GET /api/sensors/stream
 // SSE endpoint for real-time updates
 // -------------------------------------------------------
@@ -32,6 +45,10 @@ const streamSensors = (req, res) => {
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
+  
+  // CRITICAL for Render and Nginx: Disable proxy buffering
+  res.setHeader("X-Accel-Buffering", "no");
+  
   res.flushHeaders(); // flush the headers to establish connection
 
   // Send an initial connected message
