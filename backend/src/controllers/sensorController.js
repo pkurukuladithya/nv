@@ -169,6 +169,9 @@ const createSensor = async (req, res) => {
       source: "http",
     });
 
+    // Broadcast to SSE clients so real-time dashboard updates instantly
+    broadcastNewReading(newReading);
+
     res.status(201).json({ success: true, data: newReading });
   } catch (error) {
     console.error("Error creating sensor reading:", error.message);
