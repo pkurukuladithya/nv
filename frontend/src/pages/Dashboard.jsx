@@ -142,7 +142,12 @@ const Dashboard = () => {
       return;
     }
 
-    const sse = new EventSource(`${import.meta.env.VITE_API_BASE_URL}/api/sensors/stream`);
+    // Fix: VITE_API_BASE_URL usually includes '/api', so we remove the extra '/api' here
+    const apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
+    const sseUrl = apiBase.endsWith("/api") ? `${apiBase}/sensors/stream` : `${apiBase}/api/sensors/stream`;
+    
+    console.log("🔌 Dashboard: Connecting to SSE at", sseUrl);
+    const sse = new EventSource(sseUrl);
     sseRef.current = sse;
 
     sse.onmessage = (event) => {
@@ -163,16 +168,26 @@ const Dashboard = () => {
       }
     };
 
-    sse.onerror = () => {
-      // Browser automatically tries to reconnect SSE on error
-      console.warn("Real-time connection dropped. Trying to reconnect...");
+    sse.onopen = () => {
+      console.log("✅ Dashboard: Real-time SSE connection established!");
     };
+
+    sse.onerror = (err) => {
+      console.warn("⚠️ Dashboard: Real-time connection dropped. Retrying...");
+      // Browser automatically tries to reconnect SSE on error
+    };
+
+    // 3. Fallback Polling: Ensure data updates even if SSE is blocked by proxy (Render/Vercel)
+    const fallbackPoll = setInterval(() => {
+      if (autoRefresh) fetchData(true);
+    }, 15000); // 15s fallback poll
 
     return () => {
       if (sseRef.current) {
         sseRef.current.close();
         sseRef.current = null;
       }
+      clearInterval(fallbackPoll);
     };
   }, [autoRefresh, fetchData]);
 
