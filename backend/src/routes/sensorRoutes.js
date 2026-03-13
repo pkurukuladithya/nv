@@ -11,6 +11,7 @@ const {
   getSensorsByDevice,
   getSensorById,
   createSensor,
+  clearAllSensors,
   deleteSensor,
   streamSensors,
 } = require("../controllers/sensorController");
@@ -19,6 +20,9 @@ const {
 
 // GET /api/sensors/stream                   → Server-Sent Events for real-time updates
 router.get("/stream", streamSensors);
+
+// DELETE /api/sensors/clear                 → wipe all in-memory history
+router.delete("/clear", clearAllSensors);
 
 // GET /api/sensors                          → all readings (optional ?deviceId=)
 router.get("/", getAllSensors);

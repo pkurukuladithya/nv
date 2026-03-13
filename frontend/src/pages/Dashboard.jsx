@@ -2,9 +2,9 @@
 // Paddy drying monitor: temperature, humidity, moisture tracking
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { getAllSensors, getLatestSensor } from "../api/sensorApi";
+import { getAllSensors, getLatestSensor, clearAllSensors } from "../api/sensorApi";
 import SensorCard from "../components/SensorCard";
-import SensorTable from "../components/SensorTable";
+import HistoryChart from "../components/HistoryChart";
 import EmptyState from "../components/EmptyState";
 import LoadingSpinner from "../components/LoadingSpinner";
 
@@ -68,6 +68,12 @@ const IconHistory = (
     <polyline points="12 6 12 12 16 14"/>
   </svg>
 );
+const IconTrash = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+    <polyline points="3 6 5 6 21 6"></polyline>
+    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+  </svg>
+);
 
 // ── Constants ────────────────────────────────────────────────
 const POLL_INTERVAL       = 4;   // seconds
@@ -129,6 +135,16 @@ const Dashboard = () => {
     }
   }, []);
 
+  const handleClearHistory = async () => {
+    if (!window.confirm("Are you sure you want to permanently delete all sensor history?")) return;
+    try {
+      await clearAllSensors();
+      // The SSE stream will send {"cleared": true} which will trigger a wipe automatically
+    } catch (err) {
+      alert("Failed to clear history: " + err.message);
+    }
+  };
+
   useEffect(() => {
     // 1. Always fetch initial data on mount
     fetchData();
@@ -154,6 +170,12 @@ const Dashboard = () => {
       try {
         const data = JSON.parse(event.data);
         if (data.connected) return; // Ignore initial connection ack
+        if (data.cleared) {
+          // Special event sent when history is wiped
+          setSensors([]);
+          setLatest(null);
+          return;
+        }
 
         // Real-time update!
         setLatest(data);
@@ -391,11 +413,23 @@ const Dashboard = () => {
         ) : null}
       </section>
 
-      {/* ── Sensor History Table ── */}
+      {/* ── Sensor History Chart ── */}
       <section className="section">
-        <div className="section-title">
-          {IconHistory} Reading History
+        <div className="section-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            {IconHistory} Reading History Graph
+          </div>
+          {sensors.length > 0 && (
+            <button 
+              onClick={handleClearHistory}
+              className="btn" 
+              style={{ backgroundColor: "#ef4444", color: "white", padding: "0.25rem 0.5rem", fontSize: "0.875rem", display: "flex", alignItems: "center", gap: "0.25rem", borderRadius: "0.375rem", border: "none", cursor: "pointer" }}
+            >
+              {IconTrash} Clear History
+            </button>
+          )}
         </div>
+        
         {loading ? (
           <LoadingSpinner message="Loading history…" />
         ) : error ? (
@@ -403,7 +437,9 @@ const Dashboard = () => {
         ) : sensors.length === 0 ? (
           <EmptyState />
         ) : (
-          <SensorTable sensors={sensors} onDelete={fetchData} />
+          <div className="card" style={{ padding: "1rem" }}>
+            <HistoryChart data={sensors} />
+          </div>
         )}
       </section>
 

@@ -90,8 +90,7 @@ const startMqttSubscriber = () => {
       return;
     }
 
-    // --- Build the document to save ---
-    // Use createdAt from payload if present and parseable, otherwise use now
+    // --- Build the reading object ---
     let createdAt;
     if (payload.createdAt) {
       const parsed = new Date(payload.createdAt);
@@ -100,32 +99,30 @@ const startMqttSubscriber = () => {
       createdAt = new Date();
     }
 
-    try {
-      const reading = await SensorReading.create({
-        deviceId:    payload.deviceId,
-        temperature: payload.temperature,
-        humidity:    payload.humidity,
-        moisture:    payload.moisture,
-        fanState:    payload.fanState !== undefined ? payload.fanState : null,
-        motorState:  payload.motorState !== undefined ? payload.motorState : null,
-        systemState: payload.systemState !== undefined ? payload.systemState : null,
-        status:      payload.status || "online",
-        receivedAt:  new Date(),
-        source:      "mqtt",
-        createdAt,   // override the auto-generated createdAt with the payload value
-      });
+    const reading = {
+      _id:         Math.random().toString(36).substr(2, 9), // fake ID
+      deviceId:    payload.deviceId,
+      temperature: payload.temperature,
+      humidity:    payload.humidity,
+      moisture:    payload.moisture,
+      fanState:    payload.fanState !== undefined ? payload.fanState : null,
+      motorState:  payload.motorState !== undefined ? payload.motorState : null,
+      systemState: payload.systemState !== undefined ? payload.systemState : null,
+      status:      payload.status || "online",
+      receivedAt:  new Date(),
+      source:      "mqtt",
+      createdAt,
+    };
 
-      console.log(
-        `✅ MQTT: Saved reading — Device: ${reading.deviceId} | ` +
-        `Temp: ${reading.temperature}°C | Hum: ${reading.humidity}% | Moisture: ${reading.moisture}%`
-      );
-      
-      // SSE: Broadcast to all connected dashboard clients
-      broadcastNewReading(reading);
-
-    } catch (dbErr) {
-      console.error("❌ MQTT: Failed to save reading to MongoDB:", dbErr.message);
-    }
+    console.log(
+      `✅ MQTT: Received reading — Device: ${reading.deviceId} | ` +
+      `Temp: ${reading.temperature}°C | Hum: ${reading.humidity}% | Moisture: ${reading.moisture}%`
+    );
+    
+    // Pass to controller to store in API memory and broadcast via SSE
+    const { addReadingInMemory, broadcastNewReading } = require("../controllers/sensorController");
+    addReadingInMemory(reading);
+    broadcastNewReading(reading);
   });
 
   // -------------------------------------------------------

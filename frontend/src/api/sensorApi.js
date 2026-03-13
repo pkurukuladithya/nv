@@ -41,6 +41,12 @@ export const createSensor = async (data) => {
   return response.data;
 };
 
+// Clear all sensor history (in-memory backend)
+export const clearAllSensors = async () => {
+  const response = await api.delete("/sensors/clear");
+  return response.data;
+};
+
 // Delete a sensor reading by its id
 export const deleteSensor = async (id) => {
   const response = await api.delete(`/sensors/${id}`);
