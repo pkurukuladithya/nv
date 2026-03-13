@@ -2,7 +2,8 @@
 // Paddy drying monitor: temperature, humidity, moisture tracking
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { getAllSensors, getLatestSensor, clearAllSensors } from "../api/sensorApi";
+import { clearAllSensors } from "../api/sensorApi";
+import mqttClient from "mqtt";
 import SensorCard from "../components/SensorCard";
 import HistoryChart from "../components/HistoryChart";
 import EmptyState from "../components/EmptyState";
@@ -116,15 +117,15 @@ const Dashboard = () => {
   const [loading, setLoading]         = useState(true);
   const [error, setError]             = useState(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
-  const sseRef = useRef(null);
+  const mqttRef = useRef(null);
 
   const fetchData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     setError(null);
     try {
       const [allRes, latestRes] = await Promise.all([
-        getAllSensors(),
-        getLatestSensor().catch(() => ({ data: null })),
+        import("../api/sensorApi").then(api => api.getAllSensors()),
+        import("../api/sensorApi").then(api => api.getLatestSensor()).catch(() => ({ data: null })),
       ]);
       setSensors(allRes.data || []);
       setLatest(latestRes.data || null);
@@ -149,65 +150,63 @@ const Dashboard = () => {
     // 1. Always fetch initial data on mount
     fetchData();
 
-    // 2. Setup real-time SSE connection if autoRefresh is ON
+    // 2. Setup real-time direct MQTT connection if autoRefresh is ON
     if (!autoRefresh) {
-      if (sseRef.current) {
-        sseRef.current.close();
-        sseRef.current = null;
+      if (mqttRef.current) {
+        mqttRef.current.end();
+        mqttRef.current = null;
       }
       return;
     }
 
-    // Fix: VITE_API_BASE_URL usually includes '/api', so we remove the extra '/api' here
-    const apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
-    const sseUrl = apiBase.endsWith("/api") ? `${apiBase}/sensors/stream` : `${apiBase}/api/sensors/stream`;
+    const brokerUrl = "wss://dc7dee794e454409bd21218ac1ab4796.s1.eu.hivemq.cloud:8884/mqtt";
+    const options = {
+      clientId: `react_dashboard_${Math.random().toString(16).slice(2, 8)}`,
+      username: "iot_user",
+      password: "102323pK",
+      keepalive: 30,
+    };
     
-    console.log("🔌 Dashboard: Connecting to SSE at", sseUrl);
-    const sse = new EventSource(sseUrl);
-    sseRef.current = sse;
+    console.log("🔌 Dashboard: Connecting directly to HiveMQ WebSockets...");
+    const client = mqttClient.connect(brokerUrl, options);
+    mqttRef.current = client;
 
-    sse.onmessage = (event) => {
+    client.on("connect", () => {
+      console.log("✅ Dashboard: Direct MQTT connection established!");
+      client.subscribe("devices/+/readings", { qos: 0 });
+    });
+
+    client.on("message", (topic, message) => {
       try {
-        const data = JSON.parse(event.data);
-        if (data.connected) return; // Ignore initial connection ack
-        if (data.cleared) {
-          // Special event sent when history is wiped
-          setSensors([]);
-          setLatest(null);
-          return;
+        const payload = JSON.parse(message.toString());
+        
+        // Ensure payload has the minimum required structure before updating state
+        if (payload.deviceId && payload.temperature !== undefined) {
+          setLatest(payload);
+          setSensors((prev) => {
+            const updated = [payload, ...prev];
+            if (updated.length > 200) updated.pop();
+            return updated;
+          });
         }
-
-        // Real-time update!
-        setLatest(data);
-        setSensors((prev) => {
-          // Add new reading to top, keep max 200
-          const updated = [data, ...prev];
-          if (updated.length > 200) updated.pop();
-          return updated;
-        });
       } catch (err) {
-        console.error("SSE parse error", err);
+        console.error("MQTT parse error", err);
       }
-    };
+    });
 
-    sse.onopen = () => {
-      console.log("✅ Dashboard: Real-time SSE connection established!");
-    };
+    client.on("error", (err) => {
+      console.warn("⚠️ Dashboard: Direct MQTT connection error", err);
+    });
 
-    sse.onerror = (err) => {
-      console.warn("⚠️ Dashboard: Real-time connection dropped. Retrying...");
-      // Browser automatically tries to reconnect SSE on error
-    };
-
-    // 3. Fallback Polling: Ensure data updates even if SSE is blocked by proxy (Render/Vercel)
+    // 3. Fallback Polling (in case MQTT gets blocked by a strict firewall)
     const fallbackPoll = setInterval(() => {
       if (autoRefresh) fetchData(true);
-    }, 15000); // 15s fallback poll
+    }, 15000); 
 
     return () => {
-      if (sseRef.current) {
-        sseRef.current.close();
-        sseRef.current = null;
+      if (mqttRef.current) {
+        mqttRef.current.end();
+        mqttRef.current = null;
       }
       clearInterval(fallbackPoll);
     };

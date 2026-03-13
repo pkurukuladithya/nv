@@ -13,13 +13,9 @@ const {
   createSensor,
   clearAllSensors,
   deleteSensor,
-  streamSensors,
 } = require("../controllers/sensorController");
 
 // IMPORTANT: specific paths must come before parameterised paths.
-
-// GET /api/sensors/stream                   → Server-Sent Events for real-time updates
-router.get("/stream", streamSensors);
 
 // DELETE /api/sensors/clear                 → wipe all in-memory history
 router.delete("/clear", clearAllSensors);

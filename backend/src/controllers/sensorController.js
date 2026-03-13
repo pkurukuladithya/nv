@@ -1,98 +1,25 @@
 // =============================================
-// sensorController.js - Request Handlers (In-Memory Version)
+// sensorController.js - Request Handlers (MongoDB History)
 // =============================================
-// Updated for the new sensor fields: temperature, humidity, moisture.
-// MongoDB has been completely removed. Data is stored in memory.
+// Updated for Phase 7: MongoDB history storage. SSE moved to WebSockets.
 
-// Store connected SSE clients
-let sseClients = [];
-
-// In-memory buffer to store the last 200 readings
-const MAX_READINGS = 200;
-let memoryBuffer = [];
-
-// Allow MQTT subscriber to add readings to memory
-const addReadingInMemory = (reading) => {
-  memoryBuffer.unshift(reading); // Add to beginning (newest first)
-  if (memoryBuffer.length > MAX_READINGS) {
-    memoryBuffer.pop(); // Remove oldest
-  }
-};
-
-// -------------------------------------------------------
-// Server-Sent Events (SSE) Broadcaster
-// Call this from mqttSubscriber when a new reading arrives
-// -------------------------------------------------------
-const broadcastNewReading = (reading) => {
-  // Send to all connected clients
-  sseClients.forEach((client) => {
-    try {
-      client.res.write(`data: ${JSON.stringify(reading)}\n\n`);
-    } catch (e) {
-      console.error("SSE broadcast error:", e);
-    }
-  });
-};
-
-// -------------------------------------------------------
-// Keep-alive Heartbeat (Prevents Render/Nginx timeout)
-// -------------------------------------------------------
-setInterval(() => {
-  sseClients.forEach((client) => {
-    try {
-      client.res.write(":\\n\\n"); // Send SSE comment
-    } catch (e) {
-      // Ignore
-    }
-  });
-}, 10000);
-
-// -------------------------------------------------------
-// GET /api/sensors/stream
-// SSE endpoint for real-time updates
-// -------------------------------------------------------
-const streamSensors = (req, res) => {
-  // SSE Headers
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache, no-transform");
-  res.setHeader("Connection", "keep-alive");
-  
-  // CRITICAL for Render and Nginx: Disable proxy buffering
-  res.setHeader("X-Accel-Buffering", "no");
-  res.flushHeaders(); // flush the headers to establish connection
-
-  // Prevent Node's TCP socket from buffering the stream or timing out
-  req.socket.setTimeout(0);
-  req.socket.setNoDelay(true);
-  req.socket.setKeepAlive(true);
-
-  // Send an initial connected message
-  res.write(`data: {"connected": true}\n\n`);
-
-  // Add this client to the pool
-  const clientId = Date.now();
-  const newClient = { id: clientId, res };
-  sseClients.push(newClient);
-
-  // Remove client when connection closes
-  req.on("close", () => {
-    sseClients = sseClients.filter((c) => c.id !== clientId);
-  });
-};
-
+const SensorReading = require("../models/sensorReadingModel");
 
 // -------------------------------------------------------
 // GET /api/sensors
-// Returns all sensor readings from memory, newest first.
+// Returns all sensor readings from MongoDB, newest first.
 // Optional query param: ?deviceId=esp32_01 to filter by device.
 // -------------------------------------------------------
 const getAllSensors = async (req, res) => {
   try {
-    let readings = memoryBuffer;
-    
+    const filter = {};
     if (req.query.deviceId) {
-      readings = readings.filter(r => r.deviceId === req.query.deviceId);
+      filter.deviceId = req.query.deviceId;
     }
+
+    const readings = await SensorReading.find(filter)
+      .sort({ createdAt: -1 })
+      .limit(200);
 
     res.status(200).json({
       success: true,
@@ -107,22 +34,23 @@ const getAllSensors = async (req, res) => {
 
 // -------------------------------------------------------
 // GET /api/sensors/latest
-// Returns the single most recent sensor reading from memory.
+// Returns the single most recent sensor reading from MongoDB.
 // Optional: ?deviceId=esp32_01
 // -------------------------------------------------------
 const getLatestSensor = async (req, res) => {
   try {
-    let readings = memoryBuffer;
-    
+    const filter = {};
     if (req.query.deviceId) {
-      readings = readings.filter(r => r.deviceId === req.query.deviceId);
+      filter.deviceId = req.query.deviceId;
     }
 
-    if (readings.length === 0) {
+    const reading = await SensorReading.findOne(filter).sort({ createdAt: -1 });
+
+    if (!reading) {
       return res.status(404).json({ success: false, message: "No sensor readings found" });
     }
 
-    res.status(200).json({ success: true, data: readings[0] });
+    res.status(200).json({ success: true, data: reading });
   } catch (error) {
     console.error("Error fetching latest sensor:", error.message);
     res.status(500).json({ success: false, message: "Server error while fetching latest sensor" });
@@ -131,11 +59,13 @@ const getLatestSensor = async (req, res) => {
 
 // -------------------------------------------------------
 // GET /api/sensors/device/:deviceId
-// Returns all readings for a specific device from memory.
+// Returns all readings for a specific device from MongoDB.
 // -------------------------------------------------------
 const getSensorsByDevice = async (req, res) => {
   try {
-    const readings = memoryBuffer.filter(r => r.deviceId === req.params.deviceId);
+    const readings = await SensorReading.find({ deviceId: req.params.deviceId })
+      .sort({ createdAt: -1 })
+      .limit(100);
 
     res.status(200).json({
       success: true,
@@ -150,11 +80,11 @@ const getSensorsByDevice = async (req, res) => {
 
 // -------------------------------------------------------
 // GET /api/sensors/:id
-// Returns a single reading by its fake _id from memory.
+// Returns a single reading by its MongoDB _id.
 // -------------------------------------------------------
 const getSensorById = async (req, res) => {
   try {
-    const reading = memoryBuffer.find(r => r._id === req.params.id);
+    const reading = await SensorReading.findById(req.params.id);
 
     if (!reading) {
       return res.status(404).json({ success: false, message: "Sensor reading not found" });
@@ -163,13 +93,16 @@ const getSensorById = async (req, res) => {
     res.status(200).json({ success: true, data: reading });
   } catch (error) {
     console.error("Error fetching sensor by ID:", error.message);
+    if (error.name === "CastError") {
+      return res.status(400).json({ success: false, message: "Invalid sensor ID format" });
+    }
     res.status(500).json({ success: false, message: "Server error while fetching sensor" });
   }
 };
 
 // -------------------------------------------------------
 // POST /api/sensors
-// Creates a new sensor reading via HTTP (manual/test) in memory.
+// Creates a new sensor reading via HTTP (manual/test) in MongoDB.
 // -------------------------------------------------------
 const createSensor = async (req, res) => {
   try {
@@ -182,8 +115,7 @@ const createSensor = async (req, res) => {
       });
     }
 
-    const newReading = {
-      _id:         Math.random().toString(36).substr(2, 9),
+    const newReading = await SensorReading.create({
       deviceId,
       temperature,
       humidity,
@@ -193,31 +125,26 @@ const createSensor = async (req, res) => {
       systemState: systemState !== undefined ? systemState : null,
       status:      status || "online",
       source:      "http",
-      receivedAt:  new Date(),
-      createdAt:   new Date(),
-    };
-
-    addReadingInMemory(newReading);
-    broadcastNewReading(newReading);
+    });
 
     res.status(201).json({ success: true, data: newReading });
   } catch (error) {
     console.error("Error creating sensor reading:", error.message);
+    if (error.name === "ValidationError") {
+      const messages = Object.values(error.errors).map((e) => e.message);
+      return res.status(400).json({ success: false, message: messages.join(", ") });
+    }
     res.status(500).json({ success: false, message: "Server error while creating sensor reading" });
   }
 };
 
 // -------------------------------------------------------
 // DELETE /api/sensors/clear
-// Wipes the entire in-memory history.
+// Wipes the entire history in MongoDB.
 // -------------------------------------------------------
 const clearAllSensors = async (req, res) => {
   try {
-    memoryBuffer = []; // wipe RAM
-
-    // Broadcast a special event to all SSE clients to clear their screens
-    // Passing {"cleared": true} will be intercepted by the UI
-    broadcastNewReading({ cleared: true });
+    await SensorReading.deleteMany({}); // wipe DB
 
     res.status(200).json({ success: true, message: "Sensor history cleared" });
   } catch (error) {
@@ -228,20 +155,22 @@ const clearAllSensors = async (req, res) => {
 
 // -------------------------------------------------------
 // DELETE /api/sensors/:id
-// Deletes a single reading by its fake _id from memory.
+// Deletes a single reading by its MongoDB _id.
 // -------------------------------------------------------
 const deleteSensor = async (req, res) => {
   try {
-    const initialLength = memoryBuffer.length;
-    memoryBuffer = memoryBuffer.filter(r => r._id !== req.params.id);
+    const reading = await SensorReading.findByIdAndDelete(req.params.id);
 
-    if (memoryBuffer.length === initialLength) {
+    if (!reading) {
       return res.status(404).json({ success: false, message: "Sensor reading not found" });
     }
 
     res.status(200).json({ success: true, message: "Sensor reading deleted successfully" });
   } catch (error) {
     console.error("Error deleting sensor:", error.message);
+    if (error.name === "CastError") {
+      return res.status(400).json({ success: false, message: "Invalid sensor ID format" });
+    }
     res.status(500).json({ success: false, message: "Server error while deleting sensor" });
   }
 };
@@ -254,7 +183,4 @@ module.exports = {
   createSensor,
   clearAllSensors,
   deleteSensor,
-  streamSensors,
-  broadcastNewReading,
-  addReadingInMemory,
 };

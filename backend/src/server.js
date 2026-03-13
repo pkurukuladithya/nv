@@ -7,12 +7,16 @@
 require("dotenv").config();
 
 const app = require("./app");
+const connectDB = require("./config/db");
 const startMqttSubscriber = require("./services/mqttSubscriber");
 
 const PORT = process.env.PORT || 5000;
 
 const startServer = async () => {
-  // 1. Start the MQTT subscriber (runs in background, keeps data in memory)
+  // 1. Connect to MongoDB Atlas for historical data storage
+  await connectDB();
+
+  // 2. Start the MQTT subscriber (runs in background, saves to DB)
   startMqttSubscriber();
 
   // 3. Start the Express HTTP server
