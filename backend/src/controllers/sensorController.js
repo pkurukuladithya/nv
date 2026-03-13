@@ -45,7 +45,7 @@ setInterval(() => {
       // Ignore
     }
   });
-}, 30000);
+}, 10000);
 
 // -------------------------------------------------------
 // GET /api/sensors/stream
@@ -54,13 +54,17 @@ setInterval(() => {
 const streamSensors = (req, res) => {
   // SSE Headers
   res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
   res.setHeader("Connection", "keep-alive");
   
   // CRITICAL for Render and Nginx: Disable proxy buffering
   res.setHeader("X-Accel-Buffering", "no");
-  
   res.flushHeaders(); // flush the headers to establish connection
+
+  // Prevent Node's TCP socket from buffering the stream or timing out
+  req.socket.setTimeout(0);
+  req.socket.setNoDelay(true);
+  req.socket.setKeepAlive(true);
 
   // Send an initial connected message
   res.write(`data: {"connected": true}\n\n`);
