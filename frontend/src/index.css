@@ -15,6 +15,11 @@
   --bg-surface:  #ffffff;
   --bg-elevated: #f4faf4;
   --bg-hover:    #e8f5e8;
+  
+  /* ── Glassmorphism ── */
+  --glass-bg:     rgba(255, 255, 255, 0.65);
+  --glass-border: rgba(255, 255, 255, 0.4);
+  --glass-blur:   blur(12px);
 
   /* ── Borders ── */
   --border:       #c8e6c8;
@@ -82,98 +87,149 @@ body {
 }
 
 /* =============================================
-   NAVBAR
+   LAYOUT & SIDEBAR
    ============================================= */
-.navbar {
+.app-layout {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+}
+
+.sidebar {
+  width: 260px;
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
   position: sticky;
   top: 0;
+  height: 100vh;
   z-index: 100;
-  height: var(--navbar-h);
-  background: #ffffff;
-  border-bottom: 2px solid var(--green-200);
-  box-shadow: 0 2px 8px rgba(22,163,74,0.08);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 2rem;
+  padding: 1.5rem 1rem;
+  box-shadow: var(--shadow-sm);
 }
 
-.navbar-brand {
+.sidebar__brand {
   display: flex;
   align-items: center;
-  gap: 0.875rem;
+  gap: 0.75rem;
+  margin-bottom: 2.5rem;
+  padding: 0 0.5rem;
 }
 
-.navbar-icon {
-  width: 44px;
-  height: 44px;
+.sidebar__logo {
+  width: 42px;
+  height: 42px;
   border-radius: var(--r-md);
-  background: linear-gradient(135deg, var(--green-600), var(--green-400));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-size: 1.3rem;
-  box-shadow: 0 2px 8px rgba(22,163,74,0.35);
-  flex-shrink: 0;
+  object-fit: cover;
+  box-shadow: var(--shadow-xs);
+  border: 1px solid var(--border-light);
 }
 
-.navbar-title {
-  display: block;
+.sidebar__title-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar__title {
   font-size: 1.05rem;
   font-weight: 800;
-  color: var(--green-700);
-  letter-spacing: -0.02em;
+  color: var(--green-800);
+  line-height: 1.1;
+  letter-spacing: -0.03em;
 }
 
-.navbar-subtitle {
-  display: block;
+.sidebar__subtitle {
   font-size: 0.68rem;
   color: var(--text-muted);
   font-weight: 500;
-  letter-spacing: 0.05em;
   text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 0.1rem;
 }
 
-.navbar-status {
+.sidebar__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  flex: 1;
+}
+
+.sidebar__tab {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  background: var(--green-50);
-  border: 1px solid var(--green-200);
-  border-radius: 999px;
-  padding: 0.35rem 1rem;
+  gap: 0.875rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--r-md);
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all var(--transition);
 }
 
-.status-dot {
+.sidebar__tab:hover {
+  background: var(--bg-hover);
+  color: var(--green-700);
+}
+
+.sidebar__tab--active {
+  background: linear-gradient(135deg, var(--green-500), var(--green-600));
+  color: white;
+  box-shadow: 0 4px 12px rgba(22, 163, 74, 0.25);
+}
+
+.sidebar__tab--active:hover {
+  background: linear-gradient(135deg, var(--green-600), var(--green-700));
+  color: white;
+}
+
+.sidebar__footer {
+  margin-top: auto;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border-light);
+}
+
+.sidebar__status-box {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: var(--green-50);
+  padding: 0.6rem 1rem;
+  border-radius: var(--r-md);
+  border: 1px solid var(--green-200);
+}
+
+.sidebar__status-led {
   width: 8px;
   height: 8px;
   border-radius: 50%;
+  background: var(--border);
+}
+
+.sidebar__status-led--active {
   background: var(--green-500);
   animation: pulse 2s infinite;
 }
 
-.status-label {
+.sidebar__status-text {
   font-size: 0.75rem;
   font-weight: 700;
-  color: var(--green-600);
+  color: var(--green-700);
   letter-spacing: 0.03em;
 }
 
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0.4; }
+.app-main {
+  flex: 1;
+  overflow-y: auto;
+  background: var(--bg-page);
+  position: relative;
 }
-
-/* =============================================
-   LAYOUT
-   ============================================= */
-.app { display: flex; flex-direction: column; min-height: 100vh; }
 
 .dashboard {
   max-width: var(--max-w);
   margin: 0 auto;
-  padding: 2rem 1.5rem 5rem;
+  padding: 2.5rem 2rem 5rem;
   width: 100%;
 }
 
@@ -239,7 +295,161 @@ body {
 }
 
 /* =============================================
-   SENSOR CARDS
+   SPEEDOMETER CARDS
+   ============================================= */
+.speedometer-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+}
+
+.speedometer-card {
+  border-radius: var(--r-xl);
+  border: 1px solid var(--border-light);
+  background: linear-gradient(165deg, #ffffff 0%, #f7fbf8 100%);
+  box-shadow: var(--shadow-sm);
+  padding: 1rem 1rem 1.15rem;
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+
+.speedometer-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
+}
+
+.speedometer-card__head {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin-bottom: 0.55rem;
+}
+
+.speedometer-card__icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 0.85rem;
+  display: grid;
+  place-items: center;
+  color: white;
+}
+
+.speedometer-card__title {
+  margin: 0;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.speedometer-card__sublabel {
+  margin: 0.18rem 0 0;
+  font-size: 0.73rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.speedometer {
+  position: relative;
+}
+
+.speedometer__svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.speedometer__track {
+  fill: none;
+  stroke: #e2e8f0;
+  stroke-width: 14;
+  stroke-linecap: round;
+}
+
+.speedometer__progress {
+  fill: none;
+  stroke-width: 14;
+  stroke-linecap: round;
+  transition: stroke-dasharray 0.35s ease;
+}
+
+.speedometer__needle {
+  stroke: #1f2937;
+  stroke-width: 3.5;
+  stroke-linecap: round;
+  transition: transform 0.35s ease;
+}
+
+.speedometer__hub {
+  fill: #1f2937;
+}
+
+.speedometer__value {
+  margin-top: -0.35rem;
+  text-align: center;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.22rem;
+}
+
+.speedometer__number {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.speedometer__unit {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.speedometer__range {
+  margin-top: 0.3rem;
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-muted);
+  font-size: 0.73rem;
+  font-weight: 600;
+}
+
+.speedometer-card--red .speedometer-card__icon {
+  background: linear-gradient(135deg, #f97316, #ef4444);
+}
+
+.speedometer-card--blue .speedometer-card__icon {
+  background: linear-gradient(135deg, #0284c7, #2563eb);
+}
+
+.speedometer-card--teal .speedometer-card__icon {
+  background: linear-gradient(135deg, #14b8a6, #0f766e);
+}
+
+.speedometer-card--green .speedometer-card__icon {
+  background: linear-gradient(135deg, #22c55e, #15803d);
+}
+
+.speedometer-card--red .speedometer__progress {
+  stroke: #ef4444;
+}
+
+.speedometer-card--blue .speedometer__progress {
+  stroke: #2563eb;
+}
+
+.speedometer-card--teal .speedometer__progress {
+  stroke: #14b8a6;
+}
+
+.speedometer-card--green .speedometer__progress {
+  stroke: #16a34a;
+}
+
+/* =============================================
+   SENSOR CARDS (Legacy)
    ============================================= */
 .cards-grid {
   display: grid;
@@ -248,73 +458,102 @@ body {
 }
 
 .sensor-card {
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--r-lg);
-  padding: 1.375rem 1.5rem;
+  position: relative;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-xl);
+  padding: 1.5rem;
   display: flex;
   align-items: center;
-  gap: 1.125rem;
-  box-shadow: var(--shadow-sm);
-  transition: transform var(--transition), box-shadow var(--transition);
-  cursor: default;
-  position: relative;
+  gap: 1.25rem;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04);
+  transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.4s ease;
   overflow: hidden;
+  z-index: 1;
 }
 
 .sensor-card::before {
   content: '';
   position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 3px;
+  top: 0; left: 0; right: 0; bottom: 0;
+  border-radius: inherit;
+  padding: 2px;
+  background: linear-gradient(135deg, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0) 100%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  z-index: -1;
+  pointer-events: none;
 }
 
-.sensor-card--red::before    { background: linear-gradient(90deg, #f97316, #dc2626); }
-.sensor-card--blue::before   { background: linear-gradient(90deg, #38bdf8, #0284c7); }
-.sensor-card--teal::before   { background: linear-gradient(90deg, #4ade80, #16a34a); }
-.sensor-card--green::before  { background: linear-gradient(90deg, #86efac, #22c55e); }
+.sensor-card::after {
+  content: '';
+  position: absolute;
+  top: 0; right: 0;
+  width: 150px; height: 150px;
+  background: radial-gradient(circle, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0) 70%);
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  z-index: -1;
+  pointer-events: none;
+}
 
 .sensor-card:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--shadow-md);
+  transform: translateY(-5px);
+  box-shadow: 0 12px 32px rgba(22, 163, 74, 0.12);
 }
 
+.sensor-card:hover::after {
+  opacity: 1;
+}
+
+.sensor-card--red::before    { background: linear-gradient(135deg, #fca5a5, rgba(255,255,255,0)); }
+.sensor-card--blue::before   { background: linear-gradient(135deg, #7dd3fc, rgba(255,255,255,0)); }
+.sensor-card--teal::before   { background: linear-gradient(135deg, #86efac, rgba(255,255,255,0)); }
+.sensor-card--green::before  { background: linear-gradient(135deg, #6ee7b7, rgba(255,255,255,0)); }
+
 .sensor-card__icon {
-  width: 52px;
-  height: 52px;
+  width: 58px;
+  height: 58px;
   border-radius: var(--r-md);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  z-index: 2;
+  box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.6), 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
-.sensor-card--red  .sensor-card__icon { background: #fff7ed; color: #ea580c; }
-.sensor-card--blue .sensor-card__icon { background: var(--blue-bg); color: var(--blue); }
-.sensor-card--teal .sensor-card__icon { background: var(--earth-bg); color: var(--earth); }
-.sensor-card--green .sensor-card__icon { background: var(--green-50); color: var(--green-600); }
+.sensor-card--red  .sensor-card__icon { background: linear-gradient(135deg, #fef08a, #f97316); color: white; }
+.sensor-card--blue .sensor-card__icon { background: linear-gradient(135deg, #bae6fd, #0284c7); color: white; }
+.sensor-card--teal .sensor-card__icon { background: linear-gradient(135deg, #d9f99d, #65a30d); color: white; }
+.sensor-card--green .sensor-card__icon { background: linear-gradient(135deg, #bbf7d0, #16a34a); color: white; }
 
 .sensor-card__title {
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   font-weight: 700;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-muted);
-  margin-bottom: 0.2rem;
+  margin-bottom: 0.15rem;
 }
 
 .sensor-card__value {
-  font-size: 1.65rem;
+  font-size: 1.85rem;
   font-weight: 800;
   color: var(--text-primary);
   line-height: 1.1;
   font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
 }
 
 .sensor-card__unit {
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: var(--text-muted);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-secondary);
 }
 
 .sensor-card__sublabel {
@@ -655,6 +894,7 @@ body {
   .navbar-subtitle { display: none; }
   .dashboard { padding: 1.5rem 1rem 3rem; }
   .dashboard-header { flex-direction: column; align-items: flex-start; }
+  .speedometer-grid { grid-template-columns: 1fr; }
   .cards-grid { grid-template-columns: 1fr 1fr; }
   .device-banner { flex-direction: column; align-items: flex-start; }
   .device-banner__right { align-items: flex-start; }

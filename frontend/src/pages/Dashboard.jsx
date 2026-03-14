@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { clearAllSensors } from "../api/sensorApi";
 import mqttClient from "mqtt";
-import SensorCard from "../components/SensorCard";
+import SpeedometerCard from "../components/SpeedometerCard";
 import HistoryChart from "../components/HistoryChart";
 import EmptyState from "../components/EmptyState";
 import LoadingSpinner from "../components/LoadingSpinner";
@@ -374,30 +374,39 @@ const Dashboard = () => {
         {loading ? (
           <LoadingSpinner message="Fetching sensor data from AgroDry-Bot…" />
         ) : latest && online ? (
-          <div className="cards-grid">
-            <SensorCard
-              title="Drying Temperature"
-              value={temp !== undefined ? temp.toFixed(1) : "—"}
+          <div className="speedometer-grid">
+            <SpeedometerCard
+              title="Temperature"
+              value={temp}
               unit="°C"
+              min={-10}
+              max={60}
               icon={IconTemp}
-              color="red"
-              sublabel={temp >= TARGET_TEMP - 3 ? "🔥 At drying temperature" : `Target: ${TARGET_TEMP}°C`}
+              tone="red"
+              decimals={1}
+              sublabel={temp >= TARGET_TEMP - 3 ? "At drying temperature" : `Target: ${TARGET_TEMP}°C`}
             />
-            <SensorCard
-              title="Air Humidity"
-              value={humidity !== undefined ? humidity.toFixed(1) : "—"}
+            <SpeedometerCard
+              title="Soil Moisture"
+              value={moisture}
               unit="%"
-              icon={IconDrop}
-              color="blue"
-              sublabel="Relative humidity inside box"
-            />
-            <SensorCard
-              title="Paddy Moisture"
-              value={moisture !== undefined ? moisture.toFixed(0) : "—"}
-              unit="%"
+              min={0}
+              max={100}
               icon={IconGrain}
-              color="teal"
-              sublabel={moisture <= TARGET_MOISTURE ? "✅ Dry!" : `Target: ${TARGET_MOISTURE}%`}
+              tone="teal"
+              decimals={0}
+              sublabel={moisture <= TARGET_MOISTURE ? "Dry target reached" : `Target: ${TARGET_MOISTURE}%`}
+            />
+            <SpeedometerCard
+              title="Humidity"
+              value={humidity}
+              unit="%"
+              min={0}
+              max={100}
+              icon={IconDrop}
+              tone="blue"
+              decimals={1}
+              sublabel="Relative humidity inside dryer"
             />
           </div>
         ) : !loading && !latest ? (
