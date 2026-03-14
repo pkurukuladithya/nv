@@ -1,13 +1,15 @@
 // Dashboard.jsx — AgroDry-Bot 2026
 // Paddy drying monitor: temperature, humidity, moisture tracking
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import { clearAllSensors } from "../api/sensorApi";
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
+import { clearAllSensors, getAllSensors, getLatestSensor } from "../api/sensorApi";
 import mqttClient from "mqtt";
 import SpeedometerCard from "../components/SpeedometerCard";
-import HistoryChart from "../components/HistoryChart";
+import ScenarioInsights from "../components/ScenarioInsights";
 import EmptyState from "../components/EmptyState";
 import LoadingSpinner from "../components/LoadingSpinner";
+
+const HistoryChart = lazy(() => import("../components/HistoryChart"));
 
 // ── Icons ───────────────────────────────────────────────────
 const IconTemp = (
@@ -77,11 +79,18 @@ const IconTrash = (
 );
 
 // ── Constants ────────────────────────────────────────────────
-const POLL_INTERVAL       = 4;   // seconds
 const STALE_SEC           = 30;  // offline if no reading for this long
 const TARGET_MOISTURE     = 14;  // % — dry paddy target
 const WET_MOISTURE        = 25;  // % — starting moisture
 const TARGET_TEMP         = 45;  // °C — drying temp
+const FALLBACK_POLL_MS = 15000;
+const DEFAULT_MQTT_BROKER_URL = "wss://dc7dee794e454409bd21218ac1ab4796.s1.eu.hivemq.cloud:8884/mqtt";
+const DEFAULT_MQTT_USERNAME = "iot_user";
+const DEFAULT_MQTT_PASSWORD = "102323pK";
+const MQTT_BROKER_URL = import.meta.env.VITE_MQTT_BROKER_URL || DEFAULT_MQTT_BROKER_URL;
+const MQTT_USERNAME = import.meta.env.VITE_MQTT_USERNAME || DEFAULT_MQTT_USERNAME;
+const MQTT_PASSWORD = import.meta.env.VITE_MQTT_PASSWORD || DEFAULT_MQTT_PASSWORD;
+const MQTT_TOPIC = import.meta.env.VITE_MQTT_TOPIC || "devices/+/readings";
 
 // ── Helpers ──────────────────────────────────────────────────
 const fmt = (iso) => iso ? new Date(iso).toLocaleString() : "—";
@@ -124,8 +133,8 @@ const Dashboard = () => {
     setError(null);
     try {
       const [allRes, latestRes] = await Promise.all([
-        import("../api/sensorApi").then(api => api.getAllSensors()),
-        import("../api/sensorApi").then(api => api.getLatestSensor()).catch(() => ({ data: null })),
+        getAllSensors(),
+        getLatestSensor().catch(() => ({ data: null })),
       ]);
       setSensors(allRes.data || []);
       setLatest(latestRes.data || null);
@@ -147,10 +156,8 @@ const Dashboard = () => {
   };
 
   useEffect(() => {
-    // 1. Always fetch initial data on mount
     fetchData();
 
-    // 2. Setup real-time direct MQTT connection if autoRefresh is ON
     if (!autoRefresh) {
       if (mqttRef.current) {
         mqttRef.current.end();
@@ -159,56 +166,98 @@ const Dashboard = () => {
       return;
     }
 
-    const brokerUrl = "wss://dc7dee794e454409bd21218ac1ab4796.s1.eu.hivemq.cloud:8884/mqtt";
-    const options = {
-      clientId: `react_dashboard_${Math.random().toString(16).slice(2, 8)}`,
-      username: "iot_user",
-      password: "102323pK",
-      keepalive: 30,
+    let cancelled = false;
+    let fallbackPoll = null;
+
+    const startFallbackPolling = () => {
+      if (fallbackPoll) return;
+      fallbackPoll = window.setInterval(() => {
+        fetchData(true);
+      }, FALLBACK_POLL_MS);
     };
-    
-    console.log("🔌 Dashboard: Connecting directly to HiveMQ WebSockets...");
-    const client = mqttClient.connect(brokerUrl, options);
-    mqttRef.current = client;
 
-    client.on("connect", () => {
-      console.log("✅ Dashboard: Direct MQTT connection established!");
-      client.subscribe("devices/+/readings", { qos: 0 });
-    });
-
-    client.on("message", (topic, message) => {
+    const connectMqtt = () => {
       try {
-        const payload = JSON.parse(message.toString());
-        
-        // Ensure payload has the minimum required structure before updating state
-        if (payload.deviceId && payload.temperature !== undefined) {
-          setLatest(payload);
-          setSensors((prev) => {
-            const updated = [payload, ...prev];
-            if (updated.length > 200) updated.pop();
-            return updated;
-          });
+        const client = mqttClient.connect(MQTT_BROKER_URL, {
+          clientId: `react_dashboard_${Math.random().toString(16).slice(2, 8)}`,
+          username: MQTT_USERNAME,
+          password: MQTT_PASSWORD,
+          keepalive: 30,
+          reconnectPeriod: 1500,
+          connectTimeout: 10000,
+        });
+
+        if (cancelled) {
+          client.end();
+          return;
         }
+
+        mqttRef.current = client;
+
+        client.on("connect", () => {
+          client.subscribe(MQTT_TOPIC, { qos: 0 });
+        });
+
+        client.on("message", (_topic, message) => {
+          try {
+            const payload = JSON.parse(message.toString());
+            if (payload.deviceId && payload.temperature !== undefined) {
+              setLatest((prev) => {
+                if (
+                  prev &&
+                  prev.deviceId === payload.deviceId &&
+                  prev.createdAt === payload.createdAt &&
+                  prev.temperature === payload.temperature &&
+                  prev.humidity === payload.humidity &&
+                  prev.moisture === payload.moisture &&
+                  prev.fanState === payload.fanState &&
+                  prev.motorState === payload.motorState &&
+                  prev.systemState === payload.systemState &&
+                  prev.status === payload.status
+                ) {
+                  return prev;
+                }
+                return payload;
+              });
+              setSensors((prev) => {
+                const latestEntry = prev[0];
+                if (
+                  latestEntry &&
+                  latestEntry.deviceId === payload.deviceId &&
+                  latestEntry.createdAt === payload.createdAt
+                ) {
+                  return prev;
+                }
+                const updated = [payload, ...prev];
+                if (updated.length > 200) updated.pop();
+                return updated;
+              });
+            }
+          } catch (err) {
+            console.error("MQTT parse error", err);
+          }
+        });
+
+        client.on("error", (err) => {
+          console.warn("MQTT connection error", err);
+        });
+
+        startFallbackPolling();
       } catch (err) {
-        console.error("MQTT parse error", err);
+        console.warn("MQTT connection failed. Using HTTP polling fallback.", err);
+        startFallbackPolling();
       }
-    });
+    };
 
-    client.on("error", (err) => {
-      console.warn("⚠️ Dashboard: Direct MQTT connection error", err);
-    });
-
-    // 3. Fallback Polling (in case MQTT gets blocked by a strict firewall)
-    const fallbackPoll = setInterval(() => {
-      if (autoRefresh) fetchData(true);
-    }, 15000); 
+    connectMqtt();
 
     return () => {
+      cancelled = true;
       if (mqttRef.current) {
         mqttRef.current.end();
         mqttRef.current = null;
       }
-      clearInterval(fallbackPoll);
+      if (fallbackPoll) window.clearInterval(fallbackPoll);
     };
   }, [autoRefresh, fetchData]);
 
@@ -280,7 +329,7 @@ const Dashboard = () => {
       </section>
 
       {/* ── Device Status Banner ── */}
-      <section className="section">
+      <section id="device-status" className="section">
         <div className={`device-banner ${online ? "device-banner--online" : "device-banner--offline"}`}>
           <div className="device-banner__left">
             <div className="device-banner__icon">{IconWifi}</div>
@@ -339,8 +388,8 @@ const Dashboard = () => {
       </section>
 
       {/* ── Drying Progress ── */}
-      {online && moisture !== undefined && (
-        <section className="section">
+      <section id="process-status" className="section">
+        {online && moisture !== undefined ? (
           <div className="drying-status-card">
             <div className="drying-status-card__header">
               <span className="drying-status-card__title">🌾 Paddy Drying Progress</span>
@@ -365,11 +414,23 @@ const Dashboard = () => {
               </div>
             </div>
           </div>
-        </section>
-      )}
+        ) : (
+          <p className="muted-text">Process status will appear once live data is available.</p>
+        )}
+      </section>
+
+      <ScenarioInsights
+        sectionId="scenario"
+        online={online}
+        temp={temp}
+        moisture={moisture}
+        motorOn={motorOn}
+        fanOn={fanOn}
+        systemOn={systemOn}
+      />
 
       {/* ── Live Sensor Readings ── */}
-      <section className="section">
+      <section id="live-sensor-readings" className="section">
         <div className="section-title">Live Sensor Readings</div>
         {loading ? (
           <LoadingSpinner message="Fetching sensor data from AgroDry-Bot…" />
@@ -422,7 +483,7 @@ const Dashboard = () => {
       </section>
 
       {/* ── Sensor History Chart ── */}
-      <section className="section">
+      <section id="history" className="section">
         <div className="section-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
             {IconHistory} Reading History Graph
@@ -446,9 +507,79 @@ const Dashboard = () => {
           <EmptyState />
         ) : (
           <div className="card" style={{ padding: "1rem" }}>
-            <HistoryChart data={sensors} />
+            <Suspense fallback={<LoadingSpinner message="Preparing chart..." />}>
+              <HistoryChart data={sensors} />
+            </Suspense>
           </div>
         )}
+      </section>
+
+      <section id="about-us" className="section">
+        <div className="about-panel">
+          <div className="about-panel__hero">
+            <img
+              src="/agrodry-bot-logo.png"
+              alt="AgroDry-Bot Logo"
+              className="about-panel__logo"
+            />
+            <div>
+              <p className="about-panel__eyebrow">About Us</p>
+              <h2 className="about-panel__title">AgroDry-Bot</h2>
+              <p className="about-panel__text">
+                AgroDry-Bot is an IoT-based smart drying platform built for modern agriculture.
+                It combines live sensor monitoring, intelligent scenario logic, and safety-first
+                controls to help operators dry crop material with confidence.
+              </p>
+            </div>
+          </div>
+
+          <div className="about-panel__meta-grid">
+            <article className="about-meta-card">
+              <h3 className="about-meta-card__title">Mission</h3>
+              <p className="about-meta-card__text">
+                Improve drying quality while reducing risk through real-time visibility and
+                automation-ready control logic.
+              </p>
+            </article>
+
+            <article className="about-meta-card">
+              <h3 className="about-meta-card__title">Technology</h3>
+              <p className="about-meta-card__text">
+                ESP32 + MQTT cloud streaming + React dashboard + MongoDB history tracking for
+                a complete field-to-cloud monitoring pipeline.
+              </p>
+            </article>
+
+            <article className="about-meta-card">
+              <h3 className="about-meta-card__title">Safety Logic</h3>
+              <p className="about-meta-card__text">
+                Critical moisture threshold shutdown, temperature hysteresis protection, and
+                mode-based status alerts for clear operator decisions.
+              </p>
+            </article>
+          </div>
+
+          <div className="about-panel__tags">
+            <span>AgroDry-Bot</span>
+            <span>IoT</span>
+            <span>MQTT</span>
+            <span>Smart Farming</span>
+            <span>Real-Time Monitoring</span>
+            <span>Safety Automation</span>
+          </div>
+
+          <div className="about-panel__repo">
+            <p className="about-panel__repo-text">Project source code and deployment template</p>
+            <a
+              href="https://github.com/pkurukuladithya/nv"
+              target="_blank"
+              rel="noreferrer"
+              className="about-panel__repo-link"
+            >
+              View GitHub Repository
+            </a>
+          </div>
+        </div>
       </section>
 
     </main>
@@ -456,3 +587,4 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
+

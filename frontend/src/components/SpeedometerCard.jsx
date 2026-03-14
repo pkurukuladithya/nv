@@ -1,4 +1,5 @@
 // SpeedometerCard.jsx - Modern gauge card for live sensor values
+import { memo } from "react";
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const isFiniteNumber = (value) => typeof value === "number" && Number.isFinite(value);
@@ -17,6 +18,7 @@ const SpeedometerCard = ({
   const hasValue = isFiniteNumber(value);
   const safeValue = hasValue ? clamp(value, min, max) : min;
   const percent = max === min ? 0 : ((safeValue - min) / (max - min)) * 100;
+  const progressOffset = 100 - percent;
   const angle = -90 + (percent * 180) / 100;
 
   return (
@@ -36,7 +38,7 @@ const SpeedometerCard = ({
             className="speedometer__progress"
             d="M20 110 A90 90 0 0 1 200 110"
             pathLength={100}
-            style={{ strokeDasharray: `${percent} 100` }}
+            style={{ strokeDasharray: "100 100", strokeDashoffset: progressOffset }}
           />
           <line
             className="speedometer__needle"
@@ -62,4 +64,4 @@ const SpeedometerCard = ({
   );
 };
 
-export default SpeedometerCard;
+export default memo(SpeedometerCard);

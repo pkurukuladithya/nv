@@ -15,4 +15,16 @@ export default defineConfig({
       },
     }),
   ],
+  build: {
+    cssCodeSplit: true,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('/node_modules/recharts/')) return 'vendor-chart'
+          if (id.includes('/node_modules/axios/')) return 'vendor-http'
+          return undefined
+        },
+      },
+    },
+  },
 })
